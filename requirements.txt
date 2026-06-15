@@ -1,0 +1,3 @@
+telethon>=1.36
+# optionnel, pour USE_CLAUDE = True :
+# anthropic>=0.40

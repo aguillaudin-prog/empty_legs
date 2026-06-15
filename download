@@ -1,0 +1,12 @@
+# Secrets & identifiants — NE JAMAIS committer
+config.py
+*.session
+*.session-journal
+
+# Base locale / artefacts
+*.db
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
