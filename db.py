@@ -52,6 +52,20 @@ CREATE TABLE IF NOT EXISTS matches (
     FOREIGN KEY (leg_id) REFERENCES empty_legs(id),
     FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
 );
+
+CREATE TABLE IF NOT EXISTS demand (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscriber_id INTEGER,             -- nullable (demande captee sans abonne)
+    origin        TEXT,
+    dest          TEXT,
+    date_from     TEXT,
+    date_to       TEXT,
+    max_price     REAL,
+    note          TEXT,
+    status        TEXT DEFAULT 'open', -- 'open' | 'sourced' | 'closed'
+    created_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_demand_status ON demand(status);
 """
 
 
@@ -201,6 +215,44 @@ def _to_csv(value):
     if isinstance(value, (list, tuple)):
         return ",".join(str(v).strip().upper() for v in value if str(v).strip())
     return value
+
+
+# ---------------------------------------------------------------------------
+# Carnet de demande (intention client a sourcer par le desk Dynami)
+# ---------------------------------------------------------------------------
+
+def add_demand(conn, origin, dest, subscriber_id=None, date_from=None, date_to=None,
+               max_price=None, note=None, status="open"):
+    """Enregistre une intention client (meme sans leg correspondant). Renvoie son id."""
+    cur = conn.execute(
+        """INSERT INTO demand
+           (subscriber_id, origin, dest, date_from, date_to, max_price, note, status, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        (subscriber_id, (origin or "").upper() or None, (dest or "").upper() or None,
+         date_from, date_to, max_price, note, status,
+         datetime.now().isoformat(timespec="seconds")))
+    conn.commit()
+    return cur.lastrowid
+
+
+def set_demand_status(conn, demand_id, status):
+    """Passe une demande a 'open' | 'sourced' | 'closed'."""
+    conn.execute("UPDATE demand SET status = ? WHERE id = ?", (status, demand_id))
+    conn.commit()
+
+
+def open_demand(conn):
+    """Liste la demande ouverte pour le desk Dynami (route, fenetre, budget),
+    abonne joint si renseigne. Plus ancienne d'abord (a sourcer en priorite)."""
+    cur = conn.execute(
+        """SELECT d.id, d.origin, d.dest, d.date_from, d.date_to, d.max_price,
+                  d.note, d.created_at, s.name, s.contact, s.channel
+           FROM demand d
+           LEFT JOIN subscribers s ON s.id = d.subscriber_id
+           WHERE d.status = 'open'
+           ORDER BY d.created_at ASC""")
+    cols = [c[0] for c in cur.description]
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
 
 
 def seed_demo(conn):
