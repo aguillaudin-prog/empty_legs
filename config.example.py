@@ -19,3 +19,14 @@ DB_PATH = "empty_legs.db"
 
 # Extraction : False = heuristique gratuite et hors-ligne ; True = API Claude (meilleure qualite)
 USE_CLAUDE = False
+
+# Matching + alertes : True = a chaque empty leg stocke, on cherche les abonnes
+# dont une preference colle et on les notifie (cf. matcher.py / notifier.py).
+# False = mode "ecouteur seul" historique (on se contente de ranger en base).
+MATCHING_ENABLED = False
+
+# Secrets de notification : a definir en VARIABLES D'ENVIRONNEMENT, jamais ici.
+#   Email (canal 'email')   : SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+#   Telegram (canal 'telegram') : TELEGRAM_BOT_TOKEN
+# Les abonnes/preferences se gerent en base (db.py : add_subscriber/add_preference,
+# ou seed_demo pour un jeu de demonstration).

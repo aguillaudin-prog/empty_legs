@@ -17,11 +17,17 @@ import asyncio
 from telethon import TelegramClient, events
 
 import config
-from db import connect, store_leg
+from db import connect, store_leg, leg_by_hash, get_subscriber
 from parser import parse_message, parse_with_claude
 
 conn = connect(getattr(config, "DB_PATH", "empty_legs.db"))
 client = TelegramClient(getattr(config, "SESSION", "empty_legs"), config.API_ID, config.API_HASH)
+
+MATCHING_ENABLED = getattr(config, "MATCHING_ENABLED", False)
+if MATCHING_ENABLED:
+    # imports paresseux : le mode "ecouteur seul" ne depend pas de ces modules
+    from matcher import match_leg
+    from notifier import notify_match
 
 
 def _extract(text):
@@ -31,6 +37,26 @@ def _extract(text):
         except Exception as e:
             print(f"[claude KO -> heuristique] {e}")
     return parse_message(text)
+
+
+def _match_and_notify(rec):
+    """Cherche les abonnes concernes par le leg fraichement stocke et les notifie.
+    Tolerant aux pannes : une erreur de notif ne doit pas tuer l'ecouteur."""
+    leg = leg_by_hash(conn, rec)
+    if not leg:
+        return
+    for sub_id in match_leg(conn, leg, leg_id=leg["id"]):
+        row = conn.execute(
+            "SELECT id FROM matches WHERE leg_id=? AND subscriber_id=? AND notified=0",
+            (leg["id"], sub_id)).fetchone()
+        if not row:
+            continue  # deja notifie
+        sub = get_subscriber(conn, sub_id)
+        try:
+            notify_match(conn, sub, leg, match_id=row[0])
+            print(f"   ↳ alerte envoyee a {sub['name']} ({sub['channel']})")
+        except Exception as e:
+            print(f"   ↳ [notif KO] {sub.get('name')}: {e}")
 
 
 @client.on(events.NewMessage(chats=config.GROUPS))
@@ -44,6 +70,8 @@ async def handler(event):
         print(f"✅ EMPTY LEG  {rec['route']}  {rec.get('date')}  "
               f"{rec.get('aircraft')}  {rec.get('seats')}pax  "
               f"{rec.get('price')}{rec.get('currency') or ''}  (conf {rec['confidence']})")
+        if MATCHING_ENABLED:
+            _match_and_notify(rec)
     # sinon : doublon, message sans route, ou bruit -> ignore en silence
 
 
