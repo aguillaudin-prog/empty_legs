@@ -51,6 +51,57 @@ AIRPORTS = {
 }
 
 
+# Aeroports voisins (rayon "taxi/helico raisonnable" pour l'aviation d'affaires).
+# Sert au matching : un client base a NCE accepte en general un leg depuis CEQ/MCM.
+# Symetrie completee automatiquement plus bas (si A voisin de B, alors B voisin de A).
+NEARBY = {
+    "NCE": ["CEQ", "MCM", "LTT"],          # Riviera
+    "CEQ": ["NCE", "MCM", "LTT"],
+    "MCM": ["NCE", "CEQ"],                  # Monaco
+    "LTT": ["NCE", "CEQ", "TLN"],          # Saint-Tropez
+    "TLN": ["LTT", "MRS"],
+    "MRS": ["TLN"],
+    "LBG": ["CDG", "ORY"],                  # Paris
+    "CDG": ["LBG", "ORY"],
+    "ORY": ["LBG", "CDG"],
+    "LCY": ["LTN", "STN", "BQH", "FAB"],   # Londres
+    "LTN": ["LCY", "STN", "BQH", "FAB"],
+    "STN": ["LCY", "LTN", "BQH"],
+    "BQH": ["LCY", "LTN", "STN", "FAB"],
+    "FAB": ["LCY", "LTN", "BQH"],
+    "LIN": ["MXP"],                         # Milan
+    "MXP": ["LIN"],
+}
+
+
+def _symmetrize_nearby():
+    for a, voisins in list(NEARBY.items()):
+        for b in voisins:
+            NEARBY.setdefault(b, [])
+            if a not in NEARBY[b]:
+                NEARBY[b].append(a)
+
+
+_symmetrize_nearby()
+
+
+def nearby_airports(iata):
+    """Liste des codes IATA voisins de `iata` (sans inclure iata lui-meme)."""
+    return list(NEARBY.get((iata or "").upper(), []))
+
+
+def expand_with_nearby(codes):
+    """Etend un ensemble de codes IATA avec leurs voisins. Renvoie un set en majuscules."""
+    out = set()
+    for c in codes:
+        c = (c or "").strip().upper()
+        if not c:
+            continue
+        out.add(c)
+        out.update(nearby_airports(c))
+    return out
+
+
 def _build_lookup():
     """Construit un index { token_normalisé : code_IATA } pour la reconnaissance."""
     lookup = {}
