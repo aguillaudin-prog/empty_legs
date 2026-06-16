@@ -1,0 +1,30 @@
+[Unit]
+Description=Empty Legs Radar - ecouteur Telegram (Dynami)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adapte le chemin si tu n'installes pas dans /opt/empty_legs
+WorkingDirectory=/opt/empty_legs
+ExecStart=/opt/empty_legs/.venv/bin/python listener.py
+# Fiabilite : si l'agent s'arrete pour une raison quelconque, on le relance tout seul
+Restart=always
+RestartSec=10
+User=emptylegs
+
+# --- Secrets de notification (UNIQUEMENT si tu actives MATCHING_ENABLED) ---
+# Decommente et remplis selon le canal utilise. NE METS PAS de secrets dans le code.
+# Environment=TELEGRAM_BOT_TOKEN=xxxxx
+# Environment=SMTP_HOST=smtp.exemple.com
+# Environment=SMTP_PORT=587
+# Environment=SMTP_USER=alerts@exemple.com
+# Environment=SMTP_PASSWORD=xxxxx
+# Environment=SMTP_FROM=alerts@exemple.com
+
+# Journaux
+StandardOutput=append:/var/log/empty_legs.log
+StandardError=append:/var/log/empty_legs.log
+
+[Install]
+WantedBy=multi-user.target
