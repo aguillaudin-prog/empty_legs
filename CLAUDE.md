@@ -27,6 +27,11 @@ Wedge géographique : **Côte d'Azur** (Nice/Cannes/St-Tropez/Monaco ↔ Paris/G
 - `notifier.py` — `Notifier` pluggable : `ConsoleNotifier` (défaut), `EmailNotifier` (SMTP),
   `TelegramNotifier` (bot). `notify_match()` envoie puis marque `matches.notified=1`.
 - `report_demand.py` — affiche le carnet de demande ouverte pour le desk Dynami.
+- `manage.py` — CLI (argparse) pour piloter sans coder : `legs`, `demande`, `abonnes`, `demo`,
+  `ajouter-abonne`, `ajouter-pref`, `ajouter-demande` (option `--base` pour cibler une autre DB).
+- `run_tests.py` — lance les 7 suites d'un coup, bilan PASS/FAIL, exit code CI-friendly.
+- `listener.py` durci : le traitement d'un message est sous try/except → un message fautif
+  est logué et ignoré, l'agent 24/7 ne s'arrête jamais.
 
 ## Lancer
 1. `my.telegram.org` → api_id + api_hash
@@ -36,17 +41,16 @@ Wedge géographique : **Côte d'Azur** (Nice/Cannes/St-Tropez/Monaco ↔ Paris/G
 
 ### Activer matching + alertes
 - Dans `config.py` : `MATCHING_ENABLED = True` (défaut `False` = écouteur seul, comportement historique).
-- Créer abonnés/préférences en base (`db.add_subscriber` / `add_preference`, ou `seed_demo` pour démo).
+- Créer abonnés/préférences via `manage.py` (`ajouter-abonne` / `ajouter-pref`, ou `demo` pour un jeu de test) ;
+  équivalents bas niveau : `db.add_subscriber` / `add_preference` / `seed_demo`.
 - Secrets de notif en **variables d'environnement** (jamais en dur) :
   - email : `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
   - telegram : `TELEGRAM_BOT_TOKEN` (contact abonné = `chat_id`)
-- Carnet de demande : `python report_demand.py [base.db]`.
+- Carnet de demande : `python manage.py demande` (ou `python report_demand.py [base.db]`).
 
 ## Lancer les tests
-`python test_parser.py && python test_integration.py && python test_db_subscribers.py && \
- python test_matcher.py && python test_notifier.py && python test_listener_flow.py && \
- python test_demand.py`
-(Tests = scripts autonomes, pas de pytest ; chacun crée/supprime sa propre base de test.)
+`python run_tests.py` (lance les 7 suites, bilan PASS/FAIL, exit code 0/1).
+Tests = scripts autonomes, pas de pytest ; chacun crée/supprime sa propre base de test.
 
 ## Conventions / décisions
 - Un message sans route exploitable (origin+destination) est **écarté volontairement** (on préfère rater un leg que polluer la base).

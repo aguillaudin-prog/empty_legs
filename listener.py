@@ -64,15 +64,20 @@ async def handler(event):
     text = event.message.message or ""
     if not text.strip():
         return
-    rec = _extract(text)
-    src = f"telegram:{getattr(event.chat, 'title', event.chat_id)}"
-    if store_leg(conn, rec, source=src):
-        print(f"✅ EMPTY LEG  {rec['route']}  {rec.get('date')}  "
-              f"{rec.get('aircraft')}  {rec.get('seats')}pax  "
-              f"{rec.get('price')}{rec.get('currency') or ''}  (conf {rec['confidence']})")
-        if MATCHING_ENABLED:
-            _match_and_notify(rec)
-    # sinon : doublon, message sans route, ou bruit -> ignore en silence
+    # Robustesse : un seul message mal forme ne doit JAMAIS arreter l'agent 24/7.
+    try:
+        rec = _extract(text)
+        src = f"telegram:{getattr(event.chat, 'title', event.chat_id)}"
+        if store_leg(conn, rec, source=src):
+            print(f"✅ EMPTY LEG  {rec['route']}  {rec.get('date')}  "
+                  f"{rec.get('aircraft')}  {rec.get('seats')}pax  "
+                  f"{rec.get('price')}{rec.get('currency') or ''}  (conf {rec['confidence']})")
+            if MATCHING_ENABLED:
+                _match_and_notify(rec)
+        # sinon : doublon, message sans route, ou bruit -> ignore en silence
+    except Exception as e:
+        # on logue et on continue d'ecouter (le flux ne s'interrompt pas)
+        print(f"[message ignore - erreur de traitement] {type(e).__name__}: {e}")
 
 
 async def main():

@@ -23,13 +23,36 @@ et les range en base avec déduplication + expiration. Conçu pour tourner **tou
 - `python test_integration.py` → teste parse + stockage + déduplication.
 Remplace les exemples par **tes vrais messages** pour calibrer.
 
+## Piloter le radar sans coder
+Un seul outil, `manage.py`, gère tout depuis le terminal :
+```bash
+python manage.py legs          # empty legs actifs en base
+python manage.py demande       # carnet de demande ouverte (pour le desk Dynami)
+python manage.py abonnes       # abonnés + leurs préférences
+python manage.py demo          # jeu de données de démonstration
+
+python manage.py ajouter-abonne --nom "Client St-Tropez" --contact client@example.com --canal email
+python manage.py ajouter-pref  --abonne 1 --depart NCE,CEQ --arrivee LBG,GVA --prix-max 8000 --sieges-min 2
+python manage.py ajouter-demande --depart NCE --arrivee LBG --prix-max 6000 --note "vendredi"
+```
+`python manage.py -h` liste toutes les commandes.
+
+## Vérifier que tout marche
+```bash
+python run_tests.py            # lance les 7 suites et affiche un bilan PASS/FAIL
+```
+
 ## Fichiers
 | Fichier | Rôle |
 |---|---|
 | `parser.py` | Le cœur : message brut → ligne structurée |
-| `airports.py` | Référentiel aéroports (enrichis-le pour couvrir plus de routes) |
-| `db.py` | Stockage SQLite + dédup + expiration |
-| `listener.py` | L'écouteur Telegram (Telethon) |
+| `airports.py` | Référentiel aéroports + aéroports voisins (matching de proximité) |
+| `db.py` | Stockage SQLite + dédup + expiration ; abonnés, préférences, matches, demande |
+| `listener.py` | L'écouteur Telegram (Telethon) — robuste : un message fautif n'arrête pas l'agent |
+| `matcher.py` | Associe un empty leg aux abonnés dont une préférence colle |
+| `notifier.py` | Envoi des alertes (console / email / Telegram) |
+| `report_demand.py` | Affiche le carnet de demande ouverte |
+| `manage.py` | Outil en ligne de commande pour tout piloter sans coder |
 | `config.example.py` | Modèle de configuration |
 
 ## Qualité d'extraction : heuristique vs Claude
@@ -38,10 +61,22 @@ messages très tordus, passe `USE_CLAUDE = True` dans `config.py` (nécessite `a
 et une clé `ANTHROPIC_API_KEY`) : Claude extrait alors les champs avec une bien
 meilleure tolérance au désordre.
 
-## Prochaines briques (non incluses dans ce MVP)
-- Moteur de **matching** demande client ↔ empty legs + **alertes** (email/SMS/web-push).
-- **Carnet de demande** : capter l'intention client et la pousser au desk courtier Dynami.
-- Petit **dashboard** des legs actifs.
+## Activer le matching + les alertes
+Par défaut l'agent se contente d'écouter et de ranger (mode historique). Pour qu'il
+**alerte automatiquement** les abonnés dès qu'un empty leg correspond à leurs critères :
+1. dans `config.py`, mets `MATCHING_ENABLED = True` ;
+2. crée des abonnés et leurs préférences avec `manage.py` (voir plus haut) ;
+3. secrets de notification en **variables d'environnement** (jamais dans le code) :
+   - email : `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` ;
+   - Telegram : `TELEGRAM_BOT_TOKEN` (le `contact` de l'abonné = son `chat_id`).
+
+Sans rien configurer, le canal `console` affiche les alertes dans le terminal — pratique pour tester.
+
+## Prochaines briques (non incluses)
+- **SMS** / **web-push** (brique PWA).
+- Capter l'intention client en **langage naturel** pour remplir le carnet automatiquement.
+- **Conversion de devises** dans le filtre de prix.
+- Petit **dashboard** web des legs actifs + suivi des commissions.
 
 ## Note honnête
 Le référentiel `airports.py` est volontairement limité (focus Riviera/Europe). Plus tu
